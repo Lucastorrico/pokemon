@@ -97,11 +97,41 @@ client.on("messageCreate", async (msg) => {
       return msg.reply("📭 Tu Pokédex está vacía.");
     }
 
-    let lista = pokedex[userId]
-      .map((p, i) => `#${i + 1} - **${p.name}**`)
-      .join("\n");
+    let page = 0;
+    const pageSize = 10;
+    const totalPages = Math.ceil(pokedex[userId].length / pageSize);
 
-    msg.reply({ content: `📖 **Tu Pokédex:**\n${lista}` });
+    const renderPage = (page) => {
+      let start = page * pageSize;
+      let end = start + pageSize;
+      let lista = pokedex[userId]
+        .slice(start, end)
+        .map((p, i) => `#${start + i + 1} - **${p.name}** (Nivel ${p.nivel})`)
+        .join("\n");
+
+      return `📖 **Tu Pokédex** (Página ${page + 1}/${totalPages}):\n${lista}`;
+    };
+
+    let message = await msg.reply(renderPage(page));
+
+    // Reacciones de control
+    const emojis = ["⏮️", "◀️", "▶️", "⏭️"];
+    for (let e of emojis) await message.react(e);
+
+    const filter = (reaction, user) =>
+      emojis.includes(reaction.emoji.name) && user.id === userId;
+
+    const collector = message.createReactionCollector({ filter, time: 60000 });
+
+    collector.on("collect", (reaction, user) => {
+      if (reaction.emoji.name === "⏮️") page = 0;
+      if (reaction.emoji.name === "◀️" && page > 0) page--;
+      if (reaction.emoji.name === "▶️" && page < totalPages - 1) page++;
+      if (reaction.emoji.name === "⏭️") page = totalPages - 1;
+
+      message.edit(renderPage(page));
+      reaction.users.remove(user.id); // quita la reacción del usuario
+    });
   }
 
   // ----------------------
@@ -257,3 +287,4 @@ client.on("messageCreate", async (msg) => {
     msg.reply("♻️ El bot ha sido reseteado. Pokédex, cooldowns y trades borrados.");
   }
 });
+
